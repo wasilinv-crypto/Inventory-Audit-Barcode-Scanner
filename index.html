@@ -1,251 +1,83 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inventory Barcode Scanner</title>
-
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
 <style>
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  padding: 16px;
-  background: #f1f5f9;
-  color: #172033;
-  font-family: Arial, sans-serif;
-}
-
-.container {
-  max-width: 520px;
-  margin: 15px auto;
-}
-
-.card {
-  background: white;
-  border: 1px solid #dbe3ee;
-  border-radius: 14px;
-  padding: 18px;
-  margin-bottom: 14px;
-}
-
-h2 { margin: 0 0 8px; }
-
-p {
-  color: #64748b;
-  font-size: 14px;
-}
-
-button, select, input {
-  width: 100%;
-  min-height: 46px;
-  border-radius: 8px;
-  font-size: 15px;
-  margin-top: 10px;
-}
-
-button {
-  border: 0;
-  background: #2563eb;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 12px;
-}
-
-button.secondary {
-  background: #e2e8f0;
-  color: #172033;
-}
-
-button:disabled { opacity: .5; }
-
-select, input {
-  border: 1px solid #cbd5e1;
-  padding: 10px;
-  background: white;
-}
-
-#reader {
-  width: 100%;
-  overflow: hidden;
-  border-radius: 10px;
-  margin-top: 12px;
-}
-
-.status {
-  display: none;
-  padding: 12px;
-  border-radius: 8px;
-  margin-top: 12px;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-}
-
-.info {
-  display: block;
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.success {
-  display: block;
-  background: #dcfce7;
-  color: #166534;
-}
-
-.error {
-  display: block;
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.barcode {
-  font-size: 20px;
-  font-weight: bold;
-  word-break: break-all;
-  color: #166534;
-}
-
-.small {
-  font-size: 12px;
-  color: #64748b;
-}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#f1f5f9;color:#172033;font-family:Arial,sans-serif}
+.container{max-width:520px;margin:15px auto}
+.card{background:#fff;border:1px solid #dbe3ee;border-radius:14px;padding:18px;margin-bottom:14px}
+h2{margin:0 0 8px}p{color:#64748b;font-size:14px}
+button,select,input{width:100%;min-height:46px;border-radius:8px;font-size:15px;margin-top:10px}
+button{border:0;background:#2563eb;color:#fff;font-weight:bold;cursor:pointer;padding:12px}
+button.secondary{background:#e2e8f0;color:#172033}
+button:disabled{opacity:.5;cursor:not-allowed}
+select,input{border:1px solid #cbd5e1;padding:10px;background:#fff}
+#reader{width:100%;overflow:hidden;border-radius:10px;margin-top:12px}
+.status{display:none;padding:12px;border-radius:8px;margin-top:12px;overflow-wrap:anywhere;font-size:14px}
+.info{display:block;background:#dbeafe;color:#1e40af}
+.success{display:block;background:#dcfce7;color:#166534}
+.error{display:block;background:#fee2e2;color:#991b1b}
+.barcode{font-size:20px;font-weight:bold;word-break:break-all;color:#166534}
+.small{font-size:12px;color:#64748b}
 </style>
 </head>
-
 <body>
-
 <div class="container">
-
   <div class="card">
     <h2>Inventory Barcode Scanner</h2>
     <p>Camera ya Gallery se barcode scan karein.</p>
-
     <label for="cameraSelect"><b>Select Camera</b></label>
-
-    <select id="cameraSelect">
-      <option value="">Loading cameras...</option>
-    </select>
-
-    <button id="startBtn" onclick="startCamera()">
-      START CAMERA SCAN
-    </button>
-
-    <button
-      class="secondary"
-      id="stopBtn"
-      onclick="stopCamera()"
-      disabled>
-      STOP CAMERA
-    </button>
-
+    <select id="cameraSelect"><option value="">Loading cameras...</option></select>
+    <button id="startBtn" onclick="startCamera()">START CAMERA SCAN</button>
+    <button class="secondary" id="stopBtn" onclick="stopCamera()" disabled>STOP CAMERA</button>
     <div id="reader"></div>
     <div id="cameraStatus" class="status"></div>
   </div>
-
   <div class="card">
     <h3>Gallery Barcode Scan</h3>
     <p>Barcode ki clear photo select karein.</p>
-
-    <input
-      id="galleryFile"
-      type="file"
-      accept="image/*"
-      onchange="scanGallery(event)">
-
-    <button
-      id="galleryBtn"
-      class="secondary"
-      onclick="document.getElementById('galleryFile').click()">
-      SELECT PHOTO FROM GALLERY
-    </button>
-
+    <input id="galleryFile" type="file" accept="image/*" onchange="scanGallery(event)">
+    <button id="galleryBtn" class="secondary" onclick="document.getElementById('galleryFile').click()">SELECT PHOTO FROM GALLERY</button>
     <div id="galleryStatus" class="status"></div>
   </div>
-
   <div class="card">
     <h3>Scanned Barcode</h3>
-
-    <div id="barcodeResult" class="barcode">
-      Waiting for scan...
-    </div>
-
-    <button
-      id="returnBtn"
-      onclick="returnToApp()"
-      disabled>
-      RETURN TO INVENTORY APP
-    </button>
-
+    <div id="barcodeResult" class="barcode">Waiting for scan...</div>
+    <button id="returnBtn" onclick="returnToApp()" disabled>RETURN TO INVENTORY APP</button>
     <div id="returnStatus" class="status"></div>
   </div>
-
-  <p class="small">
-    Camera ke liye HTTPS aur browser permission zaroori hai.
-    Gallery scan ke liye image file supported honi chahiye.
-  </p>
-
+  <p class="small">Camera ke liye HTTPS aur browser permission zaroori hai. Gallery scan ke liye image file supported honi chahiye.</p>
 </div>
-
 <script>
+let scanner=null,cameras=[],scannedCode='',scanCompleted=false,galleryBusy=false;
+const cameraSelect=document.getElementById('cameraSelect');
+const params=new URLSearchParams(location.search);
+const returnUrl=params.get('return');
 
-let scanner = null;
-let cameras = [];
-let scannedCode = '';
-let scanCompleted = false;
-let galleryBusy = false;
-
-const cameraSelect =
-  document.getElementById('cameraSelect');
-
-const params = new URLSearchParams(location.search);
-const returnUrl = params.get('return');
-
-
-/* STATUS */
-
-function showStatus(id, message, type) {
-  const el = document.getElementById(id);
-  el.textContent = message;
-  el.className = 'status ' + type;
+function showStatus(id,message,type){
+  const el=document.getElementById(id);
+  el.textContent=message;
+  el.className='status '+type;
 }
-
-function clearStatus(id) {
-  const el = document.getElementById(id);
-  el.textContent = '';
-  el.className = 'status';
+function clearStatus(id){
+  const el=document.getElementById(id);
+  el.textContent='';
+  el.className='status';
 }
-
-
-/* CHECK RETURN URL */
-
-function validReturnUrl() {
-  if (!returnUrl) return false;
-
-  try {
-    const url = new URL(returnUrl);
-
-    return (
-      url.protocol === 'https:' &&
-      (
-        url.hostname === 'script.google.com' ||
-        url.hostname === 'script.googleusercontent.com'
-      )
-    );
-
-  } catch (e) {
-    return false;
-  }
+function validReturnUrl(){
+  if(!returnUrl)return false;
+  try{
+    const url=new URL(returnUrl);
+    return url.protocol==='https:' &&
+      (url.hostname==='script.google.com' ||
+       url.hostname==='script.googleusercontent.com');
+  }catch(e){return false;}
 }
-
-
-/* BARCODE FORMATS */
-
-function getFormats() {
+function getFormats(){
   return [
     Html5QrcodeSupportedFormats.QR_CODE,
     Html5QrcodeSupportedFormats.EAN_13,
@@ -254,603 +86,206 @@ function getFormats() {
     Html5QrcodeSupportedFormats.UPC_E,
     Html5QrcodeSupportedFormats.CODE_128,
     Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.CODE_93,
     Html5QrcodeSupportedFormats.ITF,
-    Html5QrcodeSupportedFormats.CODABAR
+    Html5QrcodeSupportedFormats.CODABAR,
+    Html5QrcodeSupportedFormats.DATA_MATRIX,
+    Html5QrcodeSupportedFormats.PDF_417
   ];
 }
-
-
-/* INITIALIZE SCANNER */
-
-function initializeScanner() {
-  if (scanner) return true;
-
-  if (typeof Html5Qrcode === 'undefined') {
-    return false;
-  }
-
-  scanner = new Html5Qrcode(
-    'reader',
-    {
-      formatsToSupport: getFormats(),
-      verbose: false
-    }
-  );
-
+function initializeScanner(){
+  if(scanner)return true;
+  if(typeof Html5Qrcode==='undefined')return false;
+  scanner=new Html5Qrcode('reader',{formatsToSupport:getFormats(),verbose:false});
   return true;
 }
-
-
-/* LOAD CAMERAS */
-
-async function loadCameras() {
-  try {
-    if (!initializeScanner()) {
-      throw new Error('Scanner library load nahi hui.');
-    }
-
-    cameras = await Html5Qrcode.getCameras();
-
-    cameraSelect.innerHTML = '';
-
-    if (!cameras.length) {
-      cameraSelect.innerHTML =
-        '<option value="">No camera found</option>';
-
-      showStatus(
-        'cameraStatus',
-        'Camera nahi mila. Permission check karein.',
-        'error'
-      );
-
+async function loadCameras(){
+  try{
+    if(!initializeScanner())throw new Error('Scanner library load nahi hui.');
+    cameras=await Html5Qrcode.getCameras();
+    cameraSelect.innerHTML='';
+    if(!cameras.length){
+      cameraSelect.innerHTML='<option value="">No camera found</option>';
+      showStatus('cameraStatus','Camera nahi mila. Permission check karein.','error');
       return;
     }
-
-    cameras.forEach((camera, index) => {
-      const option = document.createElement('option');
-      option.value = camera.id;
-      option.textContent =
-        camera.label || 'Camera ' + (index + 1);
-
+    cameras.forEach((camera,index)=>{
+      const option=document.createElement('option');
+      option.value=camera.id;
+      option.textContent=camera.label||('Camera '+(index+1));
       cameraSelect.appendChild(option);
     });
-
-    const rear = cameras.find(c =>
-      /back|rear|environment|main/i.test(c.label || '')
-    );
-
-    if (rear) {
-      cameraSelect.value = rear.id;
-    }
-
-    showStatus(
-      'cameraStatus',
-      cameras.length + ' camera(s) available.',
-      'success'
-    );
-
-  } catch (error) {
-    cameraSelect.innerHTML =
-      '<option value="">Camera unavailable</option>';
-
-    showStatus(
-      'cameraStatus',
-      'Camera unavailable: ' +
-      (error.message || error) +
-      '. Gallery scan phir bhi try kar sakte hain.',
-      'error'
-    );
+    const rear=cameras.find(c=>/back|rear|environment|main/i.test(c.label||''));
+    if(rear)cameraSelect.value=rear.id;
+    showStatus('cameraStatus',cameras.length+' camera(s) available.','success');
+  }catch(error){
+    cameraSelect.innerHTML='<option value="">Camera unavailable</option>';
+    showStatus('cameraStatus','Camera unavailable: '+(error.message||error)+'. Gallery scan try karein.','error');
   }
 }
-
-
-/* START CAMERA */
-
-async function startCamera() {
-  if (!initializeScanner()) {
-    showStatus(
-      'cameraStatus',
-      'Scanner library load nahi hui. Internet check karein.',
-      'error'
-    );
-    return;
+async function startCamera(){
+  if(!initializeScanner()){
+    showStatus('cameraStatus','Scanner library load nahi hui. Internet check karein.','error');return;
   }
-
-  const cameraId = cameraSelect.value;
-
-  if (!cameraId) {
-    showStatus(
-      'cameraStatus',
-      'Pehle camera select karein.',
-      'error'
-    );
-    return;
+  const cameraId=cameraSelect.value;
+  if(!cameraId){
+    showStatus('cameraStatus','Pehle camera select karein.','error');return;
   }
-
-  document.getElementById('startBtn').disabled = true;
-
-  showStatus(
-    'cameraStatus',
-    'Camera start ho raha hai...',
-    'info'
-  );
-
-  try {
-    await scanner.start(
-      cameraId,
-      {
-        fps: 10,
-        qrbox: function(viewWidth, viewHeight) {
-          return {
-            width: Math.min(300, Math.floor(viewWidth * 0.85)),
-            height: Math.min(150, Math.floor(viewHeight * 0.35))
-          };
-        },
-        aspectRatio: 1.5
-      },
-      function(decodedText) {
-        if (scanCompleted) return;
-
-        scanCompleted = true;
-        scannedCode = String(decodedText).trim();
-
-        document.getElementById('barcodeResult').textContent =
-          scannedCode;
-
-        document.getElementById('returnBtn').disabled = false;
-
-        showStatus(
-          'cameraStatus',
-          'Barcode successfully scanned!',
-          'success'
-        );
-
-        stopCamera(false);
-
-        setTimeout(returnToApp, 900);
-      },
-      function() {
-        // Normal scan frame without a barcode.
-      }
-    );
-
-    document.getElementById('stopBtn').disabled = false;
-
-    showStatus(
-      'cameraStatus',
-      'Camera active. Barcode ko frame mein rakhein.',
-      'info'
-    );
-
-  } catch (error) {
-    document.getElementById('startBtn').disabled = false;
-
-    showStatus(
-      'cameraStatus',
-      'Camera start nahi hua: ' +
-      (error.message || error),
-      'error'
-    );
+  document.getElementById('startBtn').disabled=true;
+  showStatus('cameraStatus','Camera start ho raha hai...','info');
+  try{
+    await scanner.start(cameraId,{
+      fps:10,
+      qrbox:(viewWidth,viewHeight)=>({
+        width:Math.min(300,Math.floor(viewWidth*.85)),
+        height:Math.min(150,Math.floor(viewHeight*.35))
+      }),
+      aspectRatio:1.5
+    },decodedText=>{
+      if(scanCompleted)return;
+      scanCompleted=true;
+      scannedCode=String(decodedText).trim();
+      document.getElementById('barcodeResult').textContent=scannedCode;
+      document.getElementById('returnBtn').disabled=false;
+      showStatus('cameraStatus','Barcode successfully scanned!','success');
+      stopCamera(false).then(()=>setTimeout(returnToApp,900));
+    },()=>{});
+    document.getElementById('stopBtn').disabled=false;
+    showStatus('cameraStatus','Camera active. Barcode ko frame mein rakhein.','info');
+  }catch(error){
+    document.getElementById('startBtn').disabled=false;
+    showStatus('cameraStatus','Camera start nahi hua: '+(error.message||error),'error');
   }
 }
-
-
-/* STOP CAMERA */
-
-async function stopCamera(showMessage = true) {
-  try {
-    if (scanner && scanner.isScanning) {
-      await scanner.stop();
-    }
-
-    document.getElementById('stopBtn').disabled = true;
-    document.getElementById('startBtn').disabled = false;
-
-    if (showMessage) {
-      showStatus(
-        'cameraStatus',
-        'Camera stopped.',
-        'info'
-      );
-    }
-
-  } catch (error) {
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('stopBtn').disabled = true;
+async function stopCamera(showMessage=true){
+  try{
+    if(scanner&&scanner.isScanning)await scanner.stop();
+    document.getElementById('stopBtn').disabled=true;
+    document.getElementById('startBtn').disabled=false;
+    if(showMessage)showStatus('cameraStatus','Camera stopped.','info');
+  }catch(error){
+    document.getElementById('startBtn').disabled=false;
+    document.getElementById('stopBtn').disabled=true;
   }
 }
-
-
-/* LOAD IMAGE */
-
-function loadImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-
-    img.onload = function() {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-
-    img.onerror = function() {
-      URL.revokeObjectURL(url);
-      reject(new Error('Image open nahi ho paayi.'));
-    };
-
-    img.src = url;
+function loadImage(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Image open nahi ho paayi.'));};
+    img.src=url;
   });
 }
-
-
-/* CANVAS TO FILE */
-
-function canvasToFile(canvas, name) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(blob => {
-      if (!blob) {
-        reject(new Error('Image processing failed.'));
-        return;
-      }
-
-      resolve(new File(
-        [blob],
-        name,
-        { type: 'image/jpeg' }
-      ));
-    }, 'image/jpeg', 0.95);
+function canvasToFile(canvas,name){
+  return new Promise((resolve,reject)=>{
+    canvas.toBlob(blob=>{
+      if(!blob){reject(new Error('Image processing failed.'));return;}
+      resolve(new File([blob],name,{type:'image/jpeg'}));
+    },'image/jpeg',.95);
   });
 }
-
-
-/* CREATE ENHANCED IMAGE VARIANTS */
-
-async function makeImageVariants(file) {
-  const img = await loadImage(file);
-
-  const variants = [];
-
-  const originalWidth = img.naturalWidth;
-  const originalHeight = img.naturalHeight;
-
-  if (!originalWidth || !originalHeight) {
-    throw new Error('Image size invalid hai.');
+async function makeImageVariants(file){
+  const img=await loadImage(file),variants=[file];
+  const originalWidth=img.naturalWidth,originalHeight=img.naturalHeight;
+  if(!originalWidth||!originalHeight)throw new Error('Image size invalid hai.');
+  const scale=Math.min(2.5,2400/Math.max(originalWidth,originalHeight));
+  const width=Math.max(1,Math.round(originalWidth*scale));
+  const height=Math.max(1,Math.round(originalHeight*scale));
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(img,0,0,width,height);
+  variants.push(await canvasToFile(canvas,'barcode-upscaled.jpg'));
+  const imageData=ctx.getImageData(0,0,width,height),source=imageData.data;
+  const grayCanvas=document.createElement('canvas');grayCanvas.width=width;grayCanvas.height=height;
+  const grayCtx=grayCanvas.getContext('2d',{willReadFrequently:true});
+  const grayData=grayCtx.createImageData(width,height);
+  for(let i=0;i<source.length;i+=4){
+    const gray=.299*source[i]+.587*source[i+1]+.114*source[i+2];
+    const contrast=Math.max(0,Math.min(255,(gray-128)*1.8+128));
+    grayData.data[i]=grayData.data[i+1]=grayData.data[i+2]=contrast;
+    grayData.data[i+3]=255;
   }
-
-  // Original photo
-  variants.push(file);
-
-  // Upscale image for small barcodes
-  const maxDimension = 2400;
-  const scale = Math.min(
-    2.5,
-    maxDimension / Math.max(originalWidth, originalHeight)
-  );
-
-  const width = Math.max(1, Math.round(originalWidth * scale));
-  const height = Math.max(1, Math.round(originalHeight * scale));
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-
-  const ctx = canvas.getContext('2d', {
-    willReadFrequently: true
-  });
-
-  ctx.drawImage(img, 0, 0, width, height);
-
-  variants.push(
-    await canvasToFile(canvas, 'barcode-upscaled.jpg')
-  );
-
-  // High contrast and grayscale versions
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const source = imageData.data;
-
-  const grayCanvas = document.createElement('canvas');
-  grayCanvas.width = width;
-  grayCanvas.height = height;
-
-  const grayCtx = grayCanvas.getContext('2d', {
-    willReadFrequently: true
-  });
-
-  const grayData = grayCtx.createImageData(width, height);
-
-  for (let i = 0; i < source.length; i += 4) {
-    const gray =
-      0.299 * source[i] +
-      0.587 * source[i + 1] +
-      0.114 * source[i + 2];
-
-    const contrast = Math.max(
-      0,
-      Math.min(255, (gray - 128) * 1.8 + 128)
-    );
-
-    grayData.data[i] = contrast;
-    grayData.data[i + 1] = contrast;
-    grayData.data[i + 2] = contrast;
-    grayData.data[i + 3] = 255;
-  }
-
-  grayCtx.putImageData(grayData, 0, 0);
-
-  variants.push(
-    await canvasToFile(grayCanvas, 'barcode-contrast.jpg')
-  );
-
-  // Black and white threshold versions
-  for (const threshold of [145, 180, 210]) {
-    const thresholdCanvas = document.createElement('canvas');
-    thresholdCanvas.width = width;
-    thresholdCanvas.height = height;
-
-    const thresholdCtx = thresholdCanvas.getContext('2d', {
-      willReadFrequently: true
-    });
-
-    const thresholdData =
-      thresholdCtx.createImageData(width, height);
-
-    for (let i = 0; i < source.length; i += 4) {
-      const gray =
-        0.299 * source[i] +
-        0.587 * source[i + 1] +
-        0.114 * source[i + 2];
-
-      const value = gray < threshold ? 0 : 255;
-
-      thresholdData.data[i] = value;
-      thresholdData.data[i + 1] = value;
-      thresholdData.data[i + 2] = value;
-      thresholdData.data[i + 3] = 255;
+  grayCtx.putImageData(grayData,0,0);
+  variants.push(await canvasToFile(grayCanvas,'barcode-contrast.jpg'));
+  for(const threshold of [145,180,210]){
+    const tc=document.createElement('canvas');tc.width=width;tc.height=height;
+    const tctx=tc.getContext('2d',{willReadFrequently:true}),td=tctx.createImageData(width,height);
+    for(let i=0;i<source.length;i+=4){
+      const gray=.299*source[i]+.587*source[i+1]+.114*source[i+2],v=gray<threshold?0:255;
+      td.data[i]=td.data[i+1]=td.data[i+2]=v;td.data[i+3]=255;
     }
-
-    thresholdCtx.putImageData(thresholdData, 0, 0);
-
-    variants.push(
-      await canvasToFile(
-        thresholdCanvas,
-        'barcode-threshold-' + threshold + '.jpg'
-      )
-    );
+    tctx.putImageData(td,0,0);
+    variants.push(await canvasToFile(tc,'barcode-threshold-'+threshold+'.jpg'));
   }
-
-  // Rotated images: 90, 180 and 270 degrees
-  for (const angle of [90, 180, 270]) {
-    const rotated = document.createElement('canvas');
-
-    if (angle === 90 || angle === 270) {
-      rotated.width = height;
-      rotated.height = width;
-    } else {
-      rotated.width = width;
-      rotated.height = height;
-    }
-
-    const rctx = rotated.getContext('2d');
-
-    rctx.translate(rotated.width / 2, rotated.height / 2);
-    rctx.rotate(angle * Math.PI / 180);
-
-    rctx.drawImage(
-      img,
-      -width / 2,
-      -height / 2,
-      width,
-      height
-    );
-
-    variants.push(
-      await canvasToFile(
-        rotated,
-        'barcode-rotated-' + angle + '.jpg'
-      )
-    );
+  for(const angle of [90,180,270]){
+    const rotated=document.createElement('canvas');
+    rotated.width=(angle===90||angle===270)?height:width;
+    rotated.height=(angle===90||angle===270)?width:height;
+    const rctx=rotated.getContext('2d');
+    rctx.translate(rotated.width/2,rotated.height/2);rctx.rotate(angle*Math.PI/180);
+    rctx.drawImage(canvas,-width/2,-height/2,width,height);
+    variants.push(await canvasToFile(rotated,'barcode-rotated-'+angle+'.jpg'));
   }
-
   return variants;
 }
-
-
-/* SCAN GALLERY IMAGE */
-
-async function scanGallery(event) {
-  const file = event.target.files[0];
-
-  if (!file) return;
-
-  if (!file.type.startsWith('image/')) {
-    showStatus(
-      'galleryStatus',
-      'Please select a valid image.',
-      'error'
-    );
-    event.target.value = '';
-    return;
+async function scanGallery(event){
+  const file=event.target.files[0];if(!file)return;
+  if(!file.type.startsWith('image/')){
+    showStatus('galleryStatus','Please select a valid image.','error');event.target.value='';return;
   }
-
-  if (galleryBusy) return;
-
-  if (!initializeScanner()) {
-    showStatus(
-      'galleryStatus',
-      'Scanner library load nahi hui. Internet check karein.',
-      'error'
-    );
-    event.target.value = '';
-    return;
+  if(galleryBusy)return;
+  if(!initializeScanner()){
+    showStatus('galleryStatus','Scanner library load nahi hui. Internet check karein.','error');event.target.value='';return;
   }
-
-  galleryBusy = true;
-
-  const galleryBtn =
-    document.getElementById('galleryBtn');
-
-  galleryBtn.disabled = true;
-
-  document.getElementById('returnBtn').disabled = true;
-
-  showStatus(
-    'galleryStatus',
-    'Photo prepare ho rahi hai...',
-    'info'
-  );
-
-  try {
-    // Stop camera before scanning gallery
-    if (scanner.isScanning) {
-      await scanner.stop();
+  galleryBusy=true;
+  const galleryBtn=document.getElementById('galleryBtn');
+  galleryBtn.disabled=true;document.getElementById('returnBtn').disabled=true;
+  showStatus('galleryStatus','Photo prepare ho rahi hai...','info');
+  try{
+    if(scanner.isScanning)await scanner.stop();
+    scannedCode='';scanCompleted=false;
+    const variants=await makeImageVariants(file);let foundCode='';
+    for(let i=0;i<variants.length;i++){
+      showStatus('galleryStatus','Barcode scan ho raha hai... Attempt '+(i+1)+' of '+variants.length,'info');
+      try{
+        const result=await scanner.scanFile(variants[i],false);
+        if(result&&String(result).trim()){foundCode=String(result).trim();break;}
+      }catch(error){}
     }
-
-    scannedCode = '';
-    scanCompleted = false;
-
-    const variants = await makeImageVariants(file);
-
-    let foundCode = '';
-
-    for (let i = 0; i < variants.length; i++) {
-      showStatus(
-        'galleryStatus',
-        'Barcode scan ho raha hai... Attempt ' +
-        (i + 1) + ' of ' + variants.length,
-        'info'
-      );
-
-      try {
-        const result = await scanner.scanFile(
-          variants[i],
-          false
-        );
-
-        if (result && String(result).trim()) {
-          foundCode = String(result).trim();
-          break;
-        }
-
-      } catch (error) {
-        // Try the next enhanced image.
-      }
-    }
-
-    if (!foundCode) {
-      throw new Error(
-        'Barcode detect nahi hua. Clear aur seedhi photo try karein.'
-      );
-    }
-
-    scannedCode = foundCode;
-    scanCompleted = true;
-
-    document.getElementById('barcodeResult').textContent =
-      scannedCode;
-
-    document.getElementById('returnBtn').disabled = false;
-
-    showStatus(
-      'galleryStatus',
-      'Gallery barcode successfully scanned: ' + scannedCode,
-      'success'
-    );
-
-    setTimeout(returnToApp, 900);
-
-  } catch (error) {
-    showStatus(
-      'galleryStatus',
-      error.message ||
-      'Barcode nahi mila. Dusri clear photo try karein.',
-      'error'
-    );
-
-  } finally {
-    galleryBusy = false;
-    galleryBtn.disabled = false;
-    event.target.value = '';
+    if(!foundCode)throw new Error('Barcode detect nahi hua. Clear aur seedhi photo try karein.');
+    scannedCode=foundCode;scanCompleted=true;
+    document.getElementById('barcodeResult').textContent=scannedCode;
+    document.getElementById('returnBtn').disabled=false;
+    showStatus('galleryStatus','Gallery barcode successfully scanned: '+scannedCode,'success');
+    setTimeout(returnToApp,900);
+  }catch(error){
+    showStatus('galleryStatus',error.message||'Barcode nahi mila. Dusri clear photo try karein.','error');
+  }finally{
+    galleryBusy=false;galleryBtn.disabled=false;event.target.value='';
   }
 }
-
-
-/* SEND BARCODE TO INVENTORY APP */
-
-function returnToApp() {
-  if (!scannedCode) {
-    showStatus(
-      'returnStatus',
-      'Pehle barcode scan karein.',
-      'error'
-    );
-    return;
-  }
-
-  if (!validReturnUrl()) {
-    showStatus(
-      'returnStatus',
-      'Inventory App return link valid nahi hai.',
-      'error'
-    );
-    return;
-  }
-
-  if (window.opener && !window.opener.closed) {
-    try {
-      window.opener.postMessage(
-        {
-          type: 'INVENTORY_BARCODE',
-          barcode: scannedCode
-        },
-        'https://script.google.com'
-      );
-
-      showStatus(
-        'returnStatus',
-        'Barcode Inventory App ko bhej diya gaya.',
-        'success'
-      );
-
-      setTimeout(function() {
-        window.close();
-      }, 900);
-
-    } catch (error) {
-      showStatus(
-        'returnStatus',
-        'Barcode return nahi ho paya. Original app tab check karein.',
-        'error'
-      );
+function returnToApp(){
+  if(!scannedCode){showStatus('returnStatus','Pehle barcode scan karein.','error');return;}
+  if(!validReturnUrl()){showStatus('returnStatus','Inventory App return link valid nahi hai.','error');return;}
+  if(window.opener&&!window.opener.closed){
+    try{
+      const targetOrigin=new URL(returnUrl).origin;
+      window.opener.postMessage({type:'INVENTORY_BARCODE',barcode:scannedCode},targetOrigin);
+      showStatus('returnStatus','Barcode Inventory App ko bhej diya gaya.','success');
+      setTimeout(()=>window.close(),900);
+    }catch(error){
+      showStatus('returnStatus','Barcode return nahi ho paya: '+error.message,'error');
     }
-
-  } else {
-    showStatus(
-      'returnStatus',
-      'Original Inventory App tab nahi mila. Barcode: ' +
-      scannedCode,
-      'error'
-    );
+  }else{
+    showStatus('returnStatus','Original Inventory App tab nahi mila. Barcode: '+scannedCode,'error');
   }
 }
-
-
-/* INITIALIZE */
-
-window.addEventListener('load', function() {
-
-  if (!validReturnUrl()) {
-    showStatus(
-      'cameraStatus',
-      'Inventory App return URL missing ya invalid hai.',
-      'error'
-    );
+window.addEventListener('load',()=>{
+  if(!validReturnUrl()){
+    showStatus('cameraStatus','Inventory App return URL missing ya invalid hai. App se scanner open karein.','error');
   }
-
   loadCameras();
-
 });
-
 </script>
-
 </body>
 </html>
