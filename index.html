@@ -6,334 +6,559 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inventory Barcode Scanner</title>
 
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
 <style>
-*{box-sizing:border-box}
-body{
-  margin:0;padding:18px;background:#f1f5f9;
-  font-family:Arial,sans-serif;color:#172033
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: #f1f5f9;
+  color: #172033;
+  font-family: Arial, sans-serif;
 }
-.app{
-  max-width:520px;margin:20px auto;background:white;
-  padding:20px;border-radius:18px
+
+.container {
+  max-width: 520px;
+  margin: 15px auto;
 }
-h2{text-align:center}
-video{
-  width:100%;min-height:250px;background:#101828;
-  border-radius:12px;object-fit:cover
+
+.card {
+  background: white;
+  border: 1px solid #dbe3ee;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
 }
-button,.gallery{
-  display:block;width:100%;padding:16px;margin-top:14px;
-  border:0;border-radius:10px;background:#2563eb;
-  color:white;font-size:17px;font-weight:bold;
-  text-align:center;cursor:pointer
+
+h2 { margin: 0 0 8px; }
+
+p {
+  color: #64748b;
+  font-size: 14px;
 }
-#stop{background:#475569}
-.gallery{background:#0f766e}
-#status{
-  padding:14px;margin-top:15px;border-radius:8px;
-  background:#eff6ff;overflow-wrap:anywhere
+
+button, select, input {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 8px;
+  font-size: 15px;
+  margin-top: 10px;
 }
-#result{
-  font-size:22px;font-weight:bold;overflow-wrap:anywhere
+
+button {
+  border: 0;
+  background: #2563eb;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 12px;
 }
-#file{display:none}
+
+button.secondary {
+  background: #e2e8f0;
+  color: #172033;
+}
+
+button:disabled { opacity: .5; }
+
+select, input {
+  border: 1px solid #cbd5e1;
+  padding: 10px;
+  background: white;
+}
+
+#reader {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  margin-top: 12px;
+}
+
+.status {
+  display: none;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.info {
+  display: block;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.success {
+  display: block;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.error {
+  display: block;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.barcode {
+  font-size: 20px;
+  font-weight: bold;
+  word-break: break-all;
+  color: #166534;
+}
+
+.small {
+  font-size: 12px;
+  color: #64748b;
+}
+
 </style>
 </head>
 
 <body>
-<div class="app">
 
-<h2>Inventory Barcode Scanner</h2>
+<div class="container">
 
-<video id="video" muted playsinline></video>
+  <div class="card">
+    <h2>Inventory Barcode Scanner</h2>
+    <p>Camera ya Gallery se barcode scan karein.</p>
 
-<button id="start">📷 LIVE CAMERA SCAN</button>
-<button id="stop">STOP CAMERA</button>
+    <label for="cameraSelect"><b>Select Camera</b></label>
+    <select id="cameraSelect">
+      <option value="">Loading cameras...</option>
+    </select>
 
-<label class="gallery" for="file">
-🖼️ SCAN FROM GALLERY
-</label>
+    <button id="startBtn" onclick="startCamera()">
+      START CAMERA SCAN
+    </button>
 
-<input id="file" type="file" accept="image/*">
+    <button
+      class="secondary"
+      id="stopBtn"
+      onclick="stopCamera()"
+      disabled>
+      STOP CAMERA
+    </button>
 
-<div id="status">Choose camera or gallery to scan.</div>
+    <div id="reader"></div>
 
-<p>Scanned Barcode:</p>
-<div id="result">Not scanned</div>
+    <div id="cameraStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h3>Gallery Barcode Scan</h3>
+    <p>Barcode ki photo select karein.</p>
+
+    <input
+      id="galleryFile"
+      type="file"
+      accept="image/*"
+      onchange="scanGallery(event)">
+
+    <div id="galleryStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h3>Scanned Barcode</h3>
+
+    <div id="barcodeResult" class="barcode">
+      Waiting for scan...
+    </div>
+
+    <button
+      id="returnBtn"
+      onclick="returnToApp()"
+      disabled>
+      RETURN TO INVENTORY APP
+    </button>
+
+    <div id="returnStatus" class="status"></div>
+  </div>
+
+  <p class="small">
+    Camera access ke liye HTTPS connection aur browser permission
+    zaroori hai.
+  </p>
 
 </div>
 
 <script>
-const video = document.getElementById("video");
-const statusBox = document.getElementById("status");
-const resultBox = document.getElementById("result");
-const fileInput = document.getElementById("file");
+let scanner = null;
+let cameras = [];
+let scannedCode = '';
+let scanCompleted = false;
+
+const cameraSelect =
+  document.getElementById('cameraSelect');
 
 const params = new URLSearchParams(location.search);
-const returnUrl = params.get("return");
 
-let stream = null;
-let detector = null;
-let scanning = false;
-let busy = false;
+const returnUrl = params.get('return');
 
-function status(message) {
-  statusBox.textContent = message;
+function showStatus(id, message, type) {
+  const el = document.getElementById(id);
+  el.textContent = message;
+  el.className = 'status ' + type;
 }
 
-async function getDetector() {
-
-  if (!("BarcodeDetector" in window)) {
-    throw new Error(
-      "Barcode Detection supported nahi hai. Chrome update karein."
-    );
-  }
-
-  const supported = await BarcodeDetector.getSupportedFormats();
-
-  const wanted = [
-    "ean_13","ean_8","upc_a","upc_e",
-    "code_128","code_39","itf","codabar","qr_code"
-  ];
-
-  const formats = wanted.filter(f => supported.includes(f));
-
-  if (!formats.length) {
-    throw new Error("No supported barcode formats found.");
-  }
-
-  return new BarcodeDetector({formats});
+function clearStatus(id) {
+  const el = document.getElementById(id);
+  el.textContent = '';
+  el.className = 'status';
 }
 
-
-// BARCODE KO PURANE APP TAB MEIN BHEJNA
-function sendBarcode(code) {
-
-  code = String(code || "").trim();
-
-  if (!code) return;
-
-  resultBox.textContent = code;
-
-  if (!returnUrl) {
-    status("Return URL missing.");
-    return;
-  }
-
-  let target;
+/* CHECK RETURN URL */
+function validReturnUrl() {
+  if (!returnUrl) return false;
 
   try {
-    target = new URL(returnUrl);
+    const url = new URL(returnUrl);
 
-    if (
-      target.hostname !== "script.google.com" &&
-      target.hostname !== "script.googleusercontent.com"
-    ) {
-      throw new Error("Invalid return URL.");
-    }
+    return (
+      url.protocol === 'https:' &&
+      (
+        url.hostname === 'script.google.com' ||
+        url.hostname === 'script.googleusercontent.com'
+      )
+    );
 
   } catch (e) {
-    status("Invalid Inventory App URL.");
+    return false;
+  }
+}
+
+/* BARCODE FORMATS */
+function getFormats() {
+  return [
+    Html5QrcodeSupportedFormats.QR_CODE,
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.ITF,
+    Html5QrcodeSupportedFormats.CODABAR
+  ];
+}
+
+/* LOAD CAMERAS */
+async function loadCameras() {
+  try {
+    scanner = new Html5Qrcode(
+      'reader',
+      {
+        formatsToSupport: getFormats(),
+        verbose: false
+      }
+    );
+
+    cameras = await Html5Qrcode.getCameras();
+
+    cameraSelect.innerHTML = '';
+
+    if (!cameras.length) {
+      cameraSelect.innerHTML =
+        '<option value="">No camera found</option>';
+
+      showStatus(
+        'cameraStatus',
+        'Camera nahi mila. Browser permission check karein.',
+        'error'
+      );
+
+      return;
+    }
+
+    cameras.forEach((camera, index) => {
+      const option = document.createElement('option');
+
+      option.value = camera.id;
+      option.textContent =
+        camera.label || 'Camera ' + (index + 1);
+
+      cameraSelect.appendChild(option);
+    });
+
+    // Prefer the rear/back camera on mobile.
+    const rear = cameras.find(c =>
+      /back|rear|environment|main/i.test(c.label || '')
+    );
+
+    if (rear) {
+      cameraSelect.value = rear.id;
+    }
+
+    showStatus(
+      'cameraStatus',
+      cameras.length + ' camera(s) available.',
+      'success'
+    );
+
+  } catch (error) {
+    cameraSelect.innerHTML =
+      '<option value="">Camera unavailable</option>';
+
+    showStatus(
+      'cameraStatus',
+      'Camera access nahi mila. HTTPS aur camera permission check karein. ' +
+      (error.message || error),
+      'error'
+    );
+  }
+}
+
+/* START CAMERA */
+async function startCamera() {
+  if (scanCompleted) {
+    scanCompleted = false;
+    scannedCode = '';
+  }
+
+  if (!scanner) {
+    showStatus(
+      'cameraStatus',
+      'Scanner library load nahi hui. Internet check karein.',
+      'error'
+    );
     return;
   }
 
-  // Original Inventory App tab ko barcode bhejo
-  if (window.opener && !window.opener.closed) {
+  const cameraId = cameraSelect.value;
 
-    window.opener.postMessage({
-      type: "INVENTORY_BARCODE",
-      barcode: code
-    }, "*");
+  if (!cameraId) {
+    showStatus(
+      'cameraStatus',
+      'Pehle camera select karein.',
+      'error'
+    );
+    return;
+  }
 
-    status("Barcode Inventory App ko bhej diya gaya.");
+  document.getElementById('startBtn').disabled = true;
 
-    setTimeout(() => {
-      window.close();
-    }, 700);
+  showStatus(
+    'cameraStatus',
+    'Camera start ho raha hai...',
+    'info'
+  );
 
-  } else {
+  try {
+    await scanner.start(
+      cameraId,
+      {
+        fps: 10,
+        qrbox: function(viewWidth, viewHeight) {
+          const width = Math.min(
+            300,
+            Math.floor(viewWidth * 0.85)
+          );
 
-    status(
-      "Original Inventory App tab nahi mila. " +
-      "Scanner ko Inventory App ke SCAN button se kholein."
+          const height = Math.min(
+            150,
+            Math.floor(viewHeight * 0.35)
+          );
+
+          return { width, height };
+        },
+        aspectRatio: 1.5
+      },
+      function(decodedText) {
+        if (scanCompleted) return;
+
+        scanCompleted = true;
+        scannedCode = String(decodedText).trim();
+
+        document.getElementById('barcodeResult').textContent =
+          scannedCode;
+
+        document.getElementById('returnBtn').disabled = false;
+
+        showStatus(
+          'cameraStatus',
+          'Barcode successfully scanned!',
+          'success'
+        );
+
+        stopCamera(false);
+
+        setTimeout(returnToApp, 700);
+      },
+      function() {
+        // Normal scanning: no barcode found in this frame.
+      }
     );
 
-  }
-}
+    document.getElementById('stopBtn').disabled = false;
 
-
-// STOP CAMERA
-async function stopCamera() {
-
-  scanning = false;
-  busy = false;
-
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-    stream = null;
-  }
-
-  video.srcObject = null;
-}
-
-
-// START CAMERA
-async function startCamera() {
-
-  if (scanning) return;
-
-  try {
-
-    if (!window.isSecureContext) {
-      throw new Error("HTTPS required.");
-    }
-
-    detector = await getDetector();
-
-    status("Starting camera...");
-
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: {ideal:"environment"}
-      }
-    });
-
-    video.srcObject = stream;
-
-    await video.play();
-
-    scanning = true;
-    busy = false;
-
-    status("Camera ready. Barcode ko camera ke saamne rakhein.");
-
-    scanLoop();
+    showStatus(
+      'cameraStatus',
+      'Camera active. Barcode ko frame mein rakhein.',
+      'info'
+    );
 
   } catch (error) {
+    document.getElementById('startBtn').disabled = false;
 
-    await stopCamera();
-
-    status(error.message || error.name);
-
+    showStatus(
+      'cameraStatus',
+      'Camera start nahi hua: ' +
+      (error.message || error),
+      'error'
+    );
   }
 }
 
-
-// CAMERA SCAN LOOP
-async function scanLoop() {
-
-  if (!scanning || busy) return;
-
-  busy = true;
-
+/* STOP CAMERA */
+async function stopCamera(showMessage = true) {
   try {
-
-    if (video.readyState >= 2 && detector) {
-
-      const codes = await detector.detect(video);
-
-      if (codes.length && codes[0].rawValue) {
-
-        const code = codes[0].rawValue;
-
-        await stopCamera();
-
-        sendBarcode(code);
-
-        return;
-      }
+    if (scanner && scanner.isScanning) {
+      await scanner.stop();
     }
 
-  } catch (e) {}
+    document.getElementById('stopBtn').disabled = true;
+    document.getElementById('startBtn').disabled = false;
 
-  busy = false;
+    if (showMessage) {
+      showStatus(
+        'cameraStatus',
+        'Camera stopped.',
+        'info'
+      );
+    }
 
-  if (scanning) {
-    setTimeout(scanLoop, 180);
+  } catch (error) {
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
   }
 }
 
-
-// GALLERY SCAN
-async function scanGallery(file) {
+/* GALLERY IMAGE SCAN */
+async function scanGallery(event) {
+  const file = event.target.files[0];
 
   if (!file) return;
 
-  await stopCamera();
-
-  resultBox.textContent = "Scanning image...";
-  status("Gallery image scanning...");
-
-  try {
-
-    if (!window.isSecureContext) {
-      throw new Error("HTTPS required.");
-    }
-
-    detector = await getDetector();
-
-    const bitmap = await createImageBitmap(file);
-
-    try {
-
-      const codes = await detector.detect(bitmap);
-
-      if (codes.length && codes[0].rawValue) {
-
-        sendBarcode(codes[0].rawValue);
-
-      } else {
-
-        resultBox.textContent = "Not found";
-
-        status(
-          "Barcode nahi mila. Clear aur seedhi photo select karein."
-        );
-
-      }
-
-    } finally {
-
-      bitmap.close();
-
-    }
-
-  } catch (error) {
-
-    resultBox.textContent = "Scan failed";
-
-    status(error.message || "Image scan failed.");
-
+  if (!scanner) {
+    showStatus(
+      'galleryStatus',
+      'Scanner library load nahi hui. Internet check karein.',
+      'error'
+    );
+    return;
   }
 
-  fileInput.value = "";
+  showStatus(
+    'galleryStatus',
+    'Photo scan ho rahi hai...',
+    'info'
+  );
+
+  try {
+    const code = await scanner.scanFile(file, true);
+
+    scannedCode = String(code).trim();
+    scanCompleted = true;
+
+    document.getElementById('barcodeResult').textContent =
+      scannedCode;
+
+    document.getElementById('returnBtn').disabled = false;
+
+    showStatus(
+      'galleryStatus',
+      'Gallery barcode successfully scanned!',
+      'success'
+    );
+
+    setTimeout(returnToApp, 700);
+
+  } catch (error) {
+    showStatus(
+      'galleryStatus',
+      'Photo mein readable barcode nahi mila. Clear photo try karein.',
+      'error'
+    );
+
+  } finally {
+    event.target.value = '';
+  }
 }
 
+/* SEND BARCODE TO ORIGINAL APP */
+function returnToApp() {
+  if (!scannedCode) {
+    showStatus(
+      'returnStatus',
+      'Pehle barcode scan karein.',
+      'error'
+    );
+    return;
+  }
 
-// BUTTON EVENTS
-document.getElementById("start")
-  .addEventListener("click", startCamera);
+  if (!validReturnUrl()) {
+    showStatus(
+      'returnStatus',
+      'Inventory App return link valid nahi hai.',
+      'error'
+    );
+    return;
+  }
 
-document.getElementById("stop")
-  .addEventListener("click", async () => {
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(
+        {
+          type: 'INVENTORY_BARCODE',
+          barcode: scannedCode
+        },
+        '*'
+      );
 
-    await stopCamera();
+      showStatus(
+        'returnStatus',
+        'Barcode Inventory App ko bhej diya gaya.',
+        'success'
+      );
 
-    status("Camera stopped.");
+      setTimeout(function() {
+        window.close();
+      }, 700);
 
-  });
+    } catch (error) {
+      showStatus(
+        'returnStatus',
+        'Barcode return nahi ho paya. Original app tab check karein.',
+        'error'
+      );
+    }
 
-fileInput.addEventListener("change", () => {
+  } else {
+    showStatus(
+      'returnStatus',
+      'Original Inventory App tab nahi mila. Barcode: ' +
+      scannedCode,
+      'error'
+    );
+  }
+}
 
-  const file = fileInput.files && fileInput.files[0];
+/* INITIALIZE */
+window.addEventListener('load', function() {
+  if (!validReturnUrl()) {
+    showStatus(
+      'cameraStatus',
+      'Inventory App return URL missing ya invalid hai.',
+      'error'
+    );
+  }
 
-  if (file) scanGallery(file);
-
+  loadCameras();
 });
-
-window.addEventListener("pagehide", stopCamera);
-
 </script>
+
 </body>
 </html>
