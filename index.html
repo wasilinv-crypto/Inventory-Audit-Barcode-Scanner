@@ -114,7 +114,6 @@ select, input {
   font-size: 12px;
   color: #64748b;
 }
-
 </style>
 </head>
 
@@ -127,6 +126,7 @@ select, input {
     <p>Camera ya Gallery se barcode scan karein.</p>
 
     <label for="cameraSelect"><b>Select Camera</b></label>
+
     <select id="cameraSelect">
       <option value="">Loading cameras...</option>
     </select>
@@ -144,19 +144,25 @@ select, input {
     </button>
 
     <div id="reader"></div>
-
     <div id="cameraStatus" class="status"></div>
   </div>
 
   <div class="card">
     <h3>Gallery Barcode Scan</h3>
-    <p>Barcode ki photo select karein.</p>
+    <p>Barcode ki clear photo select karein.</p>
 
     <input
       id="galleryFile"
       type="file"
       accept="image/*"
       onchange="scanGallery(event)">
+
+    <button
+      id="galleryBtn"
+      class="secondary"
+      onclick="document.getElementById('galleryFile').click()">
+      SELECT PHOTO FROM GALLERY
+    </button>
 
     <div id="galleryStatus" class="status"></div>
   </div>
@@ -179,24 +185,28 @@ select, input {
   </div>
 
   <p class="small">
-    Camera access ke liye HTTPS connection aur browser permission
-    zaroori hai.
+    Camera ke liye HTTPS aur browser permission zaroori hai.
+    Gallery scan ke liye image file supported honi chahiye.
   </p>
 
 </div>
 
 <script>
+
 let scanner = null;
 let cameras = [];
 let scannedCode = '';
 let scanCompleted = false;
+let galleryBusy = false;
 
 const cameraSelect =
   document.getElementById('cameraSelect');
 
 const params = new URLSearchParams(location.search);
-
 const returnUrl = params.get('return');
+
+
+/* STATUS */
 
 function showStatus(id, message, type) {
   const el = document.getElementById(id);
@@ -210,7 +220,9 @@ function clearStatus(id) {
   el.className = 'status';
 }
 
+
 /* CHECK RETURN URL */
+
 function validReturnUrl() {
   if (!returnUrl) return false;
 
@@ -230,7 +242,9 @@ function validReturnUrl() {
   }
 }
 
+
 /* BARCODE FORMATS */
+
 function getFormats() {
   return [
     Html5QrcodeSupportedFormats.QR_CODE,
@@ -245,16 +259,35 @@ function getFormats() {
   ];
 }
 
+
+/* INITIALIZE SCANNER */
+
+function initializeScanner() {
+  if (scanner) return true;
+
+  if (typeof Html5Qrcode === 'undefined') {
+    return false;
+  }
+
+  scanner = new Html5Qrcode(
+    'reader',
+    {
+      formatsToSupport: getFormats(),
+      verbose: false
+    }
+  );
+
+  return true;
+}
+
+
 /* LOAD CAMERAS */
+
 async function loadCameras() {
   try {
-    scanner = new Html5Qrcode(
-      'reader',
-      {
-        formatsToSupport: getFormats(),
-        verbose: false
-      }
-    );
+    if (!initializeScanner()) {
+      throw new Error('Scanner library load nahi hui.');
+    }
 
     cameras = await Html5Qrcode.getCameras();
 
@@ -266,7 +299,7 @@ async function loadCameras() {
 
       showStatus(
         'cameraStatus',
-        'Camera nahi mila. Browser permission check karein.',
+        'Camera nahi mila. Permission check karein.',
         'error'
       );
 
@@ -275,7 +308,6 @@ async function loadCameras() {
 
     cameras.forEach((camera, index) => {
       const option = document.createElement('option');
-
       option.value = camera.id;
       option.textContent =
         camera.label || 'Camera ' + (index + 1);
@@ -283,7 +315,6 @@ async function loadCameras() {
       cameraSelect.appendChild(option);
     });
 
-    // Prefer the rear/back camera on mobile.
     const rear = cameras.find(c =>
       /back|rear|environment|main/i.test(c.label || '')
     );
@@ -304,21 +335,19 @@ async function loadCameras() {
 
     showStatus(
       'cameraStatus',
-      'Camera access nahi mila. HTTPS aur camera permission check karein. ' +
-      (error.message || error),
+      'Camera unavailable: ' +
+      (error.message || error) +
+      '. Gallery scan phir bhi try kar sakte hain.',
       'error'
     );
   }
 }
 
-/* START CAMERA */
-async function startCamera() {
-  if (scanCompleted) {
-    scanCompleted = false;
-    scannedCode = '';
-  }
 
-  if (!scanner) {
+/* START CAMERA */
+
+async function startCamera() {
+  if (!initializeScanner()) {
     showStatus(
       'cameraStatus',
       'Scanner library load nahi hui. Internet check karein.',
@@ -352,17 +381,10 @@ async function startCamera() {
       {
         fps: 10,
         qrbox: function(viewWidth, viewHeight) {
-          const width = Math.min(
-            300,
-            Math.floor(viewWidth * 0.85)
-          );
-
-          const height = Math.min(
-            150,
-            Math.floor(viewHeight * 0.35)
-          );
-
-          return { width, height };
+          return {
+            width: Math.min(300, Math.floor(viewWidth * 0.85)),
+            height: Math.min(150, Math.floor(viewHeight * 0.35))
+          };
         },
         aspectRatio: 1.5
       },
@@ -385,10 +407,10 @@ async function startCamera() {
 
         stopCamera(false);
 
-        setTimeout(returnToApp, 700);
+        setTimeout(returnToApp, 900);
       },
       function() {
-        // Normal scanning: no barcode found in this frame.
+        // Normal scan frame without a barcode.
       }
     );
 
@@ -412,7 +434,9 @@ async function startCamera() {
   }
 }
 
+
 /* STOP CAMERA */
+
 async function stopCamera(showMessage = true) {
   try {
     if (scanner && scanner.isScanning) {
@@ -436,31 +460,289 @@ async function stopCamera(showMessage = true) {
   }
 }
 
-/* GALLERY IMAGE SCAN */
+
+/* LOAD IMAGE */
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = function() {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      reject(new Error('Image open nahi ho paayi.'));
+    };
+
+    img.src = url;
+  });
+}
+
+
+/* CANVAS TO FILE */
+
+function canvasToFile(canvas, name) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) {
+        reject(new Error('Image processing failed.'));
+        return;
+      }
+
+      resolve(new File(
+        [blob],
+        name,
+        { type: 'image/jpeg' }
+      ));
+    }, 'image/jpeg', 0.95);
+  });
+}
+
+
+/* CREATE ENHANCED IMAGE VARIANTS */
+
+async function makeImageVariants(file) {
+  const img = await loadImage(file);
+
+  const variants = [];
+
+  const originalWidth = img.naturalWidth;
+  const originalHeight = img.naturalHeight;
+
+  if (!originalWidth || !originalHeight) {
+    throw new Error('Image size invalid hai.');
+  }
+
+  // Original photo
+  variants.push(file);
+
+  // Upscale image for small barcodes
+  const maxDimension = 2400;
+  const scale = Math.min(
+    2.5,
+    maxDimension / Math.max(originalWidth, originalHeight)
+  );
+
+  const width = Math.max(1, Math.round(originalWidth * scale));
+  const height = Math.max(1, Math.round(originalHeight * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d', {
+    willReadFrequently: true
+  });
+
+  ctx.drawImage(img, 0, 0, width, height);
+
+  variants.push(
+    await canvasToFile(canvas, 'barcode-upscaled.jpg')
+  );
+
+  // High contrast and grayscale versions
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const source = imageData.data;
+
+  const grayCanvas = document.createElement('canvas');
+  grayCanvas.width = width;
+  grayCanvas.height = height;
+
+  const grayCtx = grayCanvas.getContext('2d', {
+    willReadFrequently: true
+  });
+
+  const grayData = grayCtx.createImageData(width, height);
+
+  for (let i = 0; i < source.length; i += 4) {
+    const gray =
+      0.299 * source[i] +
+      0.587 * source[i + 1] +
+      0.114 * source[i + 2];
+
+    const contrast = Math.max(
+      0,
+      Math.min(255, (gray - 128) * 1.8 + 128)
+    );
+
+    grayData.data[i] = contrast;
+    grayData.data[i + 1] = contrast;
+    grayData.data[i + 2] = contrast;
+    grayData.data[i + 3] = 255;
+  }
+
+  grayCtx.putImageData(grayData, 0, 0);
+
+  variants.push(
+    await canvasToFile(grayCanvas, 'barcode-contrast.jpg')
+  );
+
+  // Black and white threshold versions
+  for (const threshold of [145, 180, 210]) {
+    const thresholdCanvas = document.createElement('canvas');
+    thresholdCanvas.width = width;
+    thresholdCanvas.height = height;
+
+    const thresholdCtx = thresholdCanvas.getContext('2d', {
+      willReadFrequently: true
+    });
+
+    const thresholdData =
+      thresholdCtx.createImageData(width, height);
+
+    for (let i = 0; i < source.length; i += 4) {
+      const gray =
+        0.299 * source[i] +
+        0.587 * source[i + 1] +
+        0.114 * source[i + 2];
+
+      const value = gray < threshold ? 0 : 255;
+
+      thresholdData.data[i] = value;
+      thresholdData.data[i + 1] = value;
+      thresholdData.data[i + 2] = value;
+      thresholdData.data[i + 3] = 255;
+    }
+
+    thresholdCtx.putImageData(thresholdData, 0, 0);
+
+    variants.push(
+      await canvasToFile(
+        thresholdCanvas,
+        'barcode-threshold-' + threshold + '.jpg'
+      )
+    );
+  }
+
+  // Rotated images: 90, 180 and 270 degrees
+  for (const angle of [90, 180, 270]) {
+    const rotated = document.createElement('canvas');
+
+    if (angle === 90 || angle === 270) {
+      rotated.width = height;
+      rotated.height = width;
+    } else {
+      rotated.width = width;
+      rotated.height = height;
+    }
+
+    const rctx = rotated.getContext('2d');
+
+    rctx.translate(rotated.width / 2, rotated.height / 2);
+    rctx.rotate(angle * Math.PI / 180);
+
+    rctx.drawImage(
+      img,
+      -width / 2,
+      -height / 2,
+      width,
+      height
+    );
+
+    variants.push(
+      await canvasToFile(
+        rotated,
+        'barcode-rotated-' + angle + '.jpg'
+      )
+    );
+  }
+
+  return variants;
+}
+
+
+/* SCAN GALLERY IMAGE */
+
 async function scanGallery(event) {
   const file = event.target.files[0];
 
   if (!file) return;
 
-  if (!scanner) {
+  if (!file.type.startsWith('image/')) {
+    showStatus(
+      'galleryStatus',
+      'Please select a valid image.',
+      'error'
+    );
+    event.target.value = '';
+    return;
+  }
+
+  if (galleryBusy) return;
+
+  if (!initializeScanner()) {
     showStatus(
       'galleryStatus',
       'Scanner library load nahi hui. Internet check karein.',
       'error'
     );
+    event.target.value = '';
     return;
   }
 
+  galleryBusy = true;
+
+  const galleryBtn =
+    document.getElementById('galleryBtn');
+
+  galleryBtn.disabled = true;
+
+  document.getElementById('returnBtn').disabled = true;
+
   showStatus(
     'galleryStatus',
-    'Photo scan ho rahi hai...',
+    'Photo prepare ho rahi hai...',
     'info'
   );
 
   try {
-    const code = await scanner.scanFile(file, true);
+    // Stop camera before scanning gallery
+    if (scanner.isScanning) {
+      await scanner.stop();
+    }
 
-    scannedCode = String(code).trim();
+    scannedCode = '';
+    scanCompleted = false;
+
+    const variants = await makeImageVariants(file);
+
+    let foundCode = '';
+
+    for (let i = 0; i < variants.length; i++) {
+      showStatus(
+        'galleryStatus',
+        'Barcode scan ho raha hai... Attempt ' +
+        (i + 1) + ' of ' + variants.length,
+        'info'
+      );
+
+      try {
+        const result = await scanner.scanFile(
+          variants[i],
+          false
+        );
+
+        if (result && String(result).trim()) {
+          foundCode = String(result).trim();
+          break;
+        }
+
+      } catch (error) {
+        // Try the next enhanced image.
+      }
+    }
+
+    if (!foundCode) {
+      throw new Error(
+        'Barcode detect nahi hua. Clear aur seedhi photo try karein.'
+      );
+    }
+
+    scannedCode = foundCode;
     scanCompleted = true;
 
     document.getElementById('barcodeResult').textContent =
@@ -470,25 +752,30 @@ async function scanGallery(event) {
 
     showStatus(
       'galleryStatus',
-      'Gallery barcode successfully scanned!',
+      'Gallery barcode successfully scanned: ' + scannedCode,
       'success'
     );
 
-    setTimeout(returnToApp, 700);
+    setTimeout(returnToApp, 900);
 
   } catch (error) {
     showStatus(
       'galleryStatus',
-      'Photo mein readable barcode nahi mila. Clear photo try karein.',
+      error.message ||
+      'Barcode nahi mila. Dusri clear photo try karein.',
       'error'
     );
 
   } finally {
+    galleryBusy = false;
+    galleryBtn.disabled = false;
     event.target.value = '';
   }
 }
 
-/* SEND BARCODE TO ORIGINAL APP */
+
+/* SEND BARCODE TO INVENTORY APP */
+
 function returnToApp() {
   if (!scannedCode) {
     showStatus(
@@ -515,7 +802,7 @@ function returnToApp() {
           type: 'INVENTORY_BARCODE',
           barcode: scannedCode
         },
-        '*'
+        'https://script.google.com'
       );
 
       showStatus(
@@ -526,7 +813,7 @@ function returnToApp() {
 
       setTimeout(function() {
         window.close();
-      }, 700);
+      }, 900);
 
     } catch (error) {
       showStatus(
@@ -546,8 +833,11 @@ function returnToApp() {
   }
 }
 
+
 /* INITIALIZE */
+
 window.addEventListener('load', function() {
+
   if (!validReturnUrl()) {
     showStatus(
       'cameraStatus',
@@ -557,7 +847,9 @@ window.addEventListener('load', function() {
   }
 
   loadCameras();
+
 });
+
 </script>
 
 </body>
