@@ -68,13 +68,11 @@ function clearStatus(id){
   el.textContent='';
   el.className='status';
 }
-function validReturnUrl(){
-  if(!returnUrl)return false;
+function validReturnOrigin(){
+  if(!returnOrigin)return false;
   try{
-    const url=new URL(returnUrl);
-    return url.protocol==='https:' &&
-      (url.hostname==='script.google.com' ||
-       url.hostname==='script.googleusercontent.com');
+    const url=new URL(returnOrigin);
+    return url.protocol==='https:' && url.origin===returnOrigin;
   }catch(e){return false;}
 }
 function getFormats(){
@@ -266,10 +264,10 @@ async function scanGallery(event){
 }
 function returnToApp(){
   if(!scannedCode){showStatus('returnStatus','Pehle barcode scan karein.','error');return;}
-  if(!validReturnUrl()){showStatus('returnStatus','Inventory App return link valid nahi hai.','error');return;}
+  if(!validReturnOrigin()){showStatus('returnStatus','Inventory App return link valid nahi hai.','error');return;}
   if(window.opener&&!window.opener.closed){
     try{
-      const targetOrigin=new URL(returnUrl).origin;
+      const targetOrigin=returnOrigin;
       window.opener.postMessage({type:'INVENTORY_BARCODE',barcode:scannedCode},targetOrigin);
       showStatus('returnStatus','Barcode Inventory App ko bhej diya gaya.','success');
       setTimeout(()=>window.close(),900);
@@ -281,7 +279,7 @@ function returnToApp(){
   }
 }
 window.addEventListener('load',()=>{
-  if(!validReturnUrl()){
+  if(!validReturnOrigin()){
     showStatus('cameraStatus','Inventory App return URL missing ya invalid hai. App se scanner open karein.','error');
   }
   loadCameras();
